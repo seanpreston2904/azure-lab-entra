@@ -91,10 +91,14 @@ jobs:
                   set -o pipefail
                   terraform plan -no-color -input=false -out=tfplan | tee plan_output.txt
 
+            - name: Compute artifact name
+              id: artifact_name
+              run: echo "name=tfplan-$(echo "${{ matrix.solution }}" | tr '/' '-')" >> "$GITHUB_OUTPUT"
+
             - name: Upload plan artifact
               uses: actions/upload-artifact@v4
               with:
-                name: tfplan-${{ replace(matrix.solution, '/', '-') }}
+                name: ${{ steps.artifact_name.outputs.name }}
                 path: ${{ matrix.solution }}/tfplan
                 retention-days: 14
 

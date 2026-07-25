@@ -106,6 +106,10 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
+            - name: Compute artifact name
+              id: artifact_name
+              run: echo "name=tfplan-$(echo "${{ matrix.solution }}" | tr '/' '-')" >> "$GITHUB_OUTPUT"
+
             - name: Download reviewed plan
               env:
                 GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -113,7 +117,7 @@ jobs:
               run: |
                   gh run download "${{ needs.detect_solutions.outputs.plan_run_id }}" \
                       --repo "$REPO" \
-                      --name "tfplan-${{ replace(matrix.solution, '/', '-') }}" \
+                      --name "${{ steps.artifact_name.outputs.name }}" \
                       --dir .
 
             - name: Log in to Azure
