@@ -12,9 +12,16 @@ jobs:
         name: Terraform Plan
         runs-on: ubuntu-latest
 
-        environment: terraform-deploy
+        environment: terraform-plan
+
+        defaults:
+            run:
+                working-directory: terraform/solutions/identity/tf-state
 
         steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
             - name: Log in to Azure
               uses: azure/login@v3
               with:
@@ -22,9 +29,13 @@ jobs:
                 tenant-id: ${{ secrets.TF_TENANT_ID }}
                 subscription-id: ${{ secrets.TF_SUBSCRIPTION_ID }}
 
-            - name: Azure CLI Test
-              uses: azure/cli@v2
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v3
               with:
-                azcliversion: latest
-                inlinescript: |
-                  az account show
+                terraform_version: "1.15.8"
+
+            - name: Terraform Init
+              run: terraform init -input=false
+
+            - name: Terraform Plan
+              run: terraform plan -input=false
