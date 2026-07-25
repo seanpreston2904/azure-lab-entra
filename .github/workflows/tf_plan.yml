@@ -6,6 +6,7 @@ on:
 permissions:
     id-token: write
     contents: read
+    pull-requests: write
 
 jobs:
     detect_solutions:
@@ -85,4 +86,36 @@ jobs:
               run: terraform init -input=false
 
             - name: Terraform Plan
-              run: terraform plan -input=false
+              id: plan
+              run: |
+                  set -o pipefail
+                  terraform plan -no-color -input=false -out=tfplan | tee plan_output.txt
+
+            - name: Format plan markdown
+              if: always() && steps.plan.outcome != 'skipped'
+              run: |
+                  python3 "$GITHUB_WORKSPACE/.github/scripts/format_plan.py" \
+                      "${{ matrix.solution }}" plan_output.txt > plan_comment.md
+
+            - name: Add plan to job summary
+              if: always() && steps.plan.outcome != 'skipped'
+              run: cat plan_comment.md >> "$GITHUB_STEP_SUMMARY"
+
+            - name: Comment on pull request
+              if: always() && steps.plan.outcome != 'skipped'
+              env:
+                GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                REPO: ${{ github.repository }}
+                PR_NUMBER: ${{ github.event.pull_request.number }}
+                MARKER: "<!-- terraform-plan:${{ matrix.solution }} -->"
+              run: |
+                  set -euo pipefail
+
+                  existing_id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
+                      --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" | head -n1)
+
+                  if [ -n "$existing_id" ]; then
+                      gh api "repos/$REPO/issues/comments/$existing_id" -X PATCH -f body=@plan_comment.md
+                  else
+                      gh api "repos/$REPO/issues/$PR_NUMBER/comments" -X POST -f body=@plan_comment.md
+                  fi
