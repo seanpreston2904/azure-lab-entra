@@ -9,7 +9,7 @@ resource "azuread_application_federated_identity_credential" "sp_id_tf_state_cre
     description     = "Deploys from azure-lab-entra main branch"
     audiences       = ["api://AzureADTokenExchange"]
     issuer          = "https://token.actions.githubusercontent.com"
-    subject         = "repo:seanpreston2904@38393064/azure-lab-entra@1305699783:environment:terraform-deploy"
+    subject         = "repo:seanpreston2904@38393064/azure-lab-entra@1305699783:environment:terraform-plan"
 }
 
 resource "azuread_service_principal" "sp_id_tf_state_principal" {
