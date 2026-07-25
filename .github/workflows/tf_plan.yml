@@ -8,15 +8,62 @@ permissions:
     contents: read
 
 jobs:
+    detect_solutions:
+        name: Detect Changed Solutions
+        runs-on: ubuntu-latest
+
+        outputs:
+            solutions: ${{ steps.detect.outputs.solutions }}
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                fetch-depth: 0
+
+            - name: Detect changed solution directories
+              id: detect
+              run: |
+                  set -euo pipefail
+
+                  changed_files=$(git diff --name-only \
+                      "${{ github.event.pull_request.base.sha }}" \
+                      "${{ github.event.pull_request.head.sha }}")
+
+                  solutions=()
+                  while IFS= read -r file; do
+                      [ -z "$file" ] && continue
+                      dir=$(dirname "$file")
+                      while [ "$dir" != "." ] && [ "$dir" != "/" ]; do
+                          if [ -f "$dir/main.tf" ]; then
+                              solutions+=("$dir")
+                              break
+                          fi
+                          dir=$(dirname "$dir")
+                      done
+                  done <<< "$changed_files"
+
+                  unique_solutions=$(printf '%s\n' "${solutions[@]:-}" | sort -u | jq -R -s -c 'split("\n") | map(select(length > 0))')
+
+                  echo "Detected solutions: $unique_solutions"
+                  echo "solutions=$unique_solutions" >> "$GITHUB_OUTPUT"
+
     terraform_plan:
-        name: Terraform Plan
+        name: Terraform Plan (${{ matrix.solution }})
+        needs: detect_solutions
+        if: needs.detect_solutions.outputs.solutions != '[]'
         runs-on: ubuntu-latest
 
         environment: terraform-plan
 
+        strategy:
+            fail-fast: false
+            matrix:
+                solution: ${{ fromJson(needs.detect_solutions.outputs.solutions) }}
+
         defaults:
             run:
-                working-directory: terraform/solutions/identity/tf-state
+                working-directory: ${{ matrix.solution }}
 
         steps:
             - name: Checkout
