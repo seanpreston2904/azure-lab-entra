@@ -6,8 +6,15 @@ terraform {
         }
     }
 
-    backend "local" {
-        path = "./../../../../temp_tf_state/tf-state"
+    backend "azurerm" {
+        resource_group_name  = "rg-tf-state-aue"
+        storage_account_name = "stspdevtfstate"
+        container_name       = "sub-management"
+        
+        # Virtual path prefix creates the folder structure in the UI
+        key                  = "identity/tf-state.tfstate" 
+        
+        use_azuread_auth     = true
     }
 }
 

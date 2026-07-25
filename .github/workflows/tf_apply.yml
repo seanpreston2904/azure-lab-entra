@@ -1,12 +1,13 @@
-name: Terraform Plan
+name: Terraform Apply
 
 on:
-    pull_request:
+    push:
+        branches:
+            - master
 
 permissions:
     id-token: write
     contents: read
-    pull-requests: write
 
 jobs:
     detect_solutions:
@@ -27,9 +28,12 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  changed_files=$(git diff --name-only \
-                      "${{ github.event.pull_request.base.sha }}" \
-                      "${{ github.event.pull_request.head.sha }}")
+                  before="${{ github.event.before }}"
+                  if [ "$before" = "0000000000000000000000000000000000000000" ]; then
+                      before="4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+                  fi
+
+                  changed_files=$(git diff --name-only "$before" "${{ github.event.after }}")
 
                   solutions=()
                   while IFS= read -r file; do
@@ -49,13 +53,13 @@ jobs:
                   echo "Detected solutions: $unique_solutions"
                   echo "solutions=$unique_solutions" >> "$GITHUB_OUTPUT"
 
-    terraform_plan:
-        name: Terraform Plan (${{ matrix.solution }})
+    terraform_apply:
+        name: Terraform Apply (${{ matrix.solution }})
         needs: detect_solutions
         if: needs.detect_solutions.outputs.solutions != '[]'
         runs-on: ubuntu-latest
 
-        environment: terraform-plan
+        environment: terraform-apply
 
         strategy:
             fail-fast: false
@@ -85,37 +89,5 @@ jobs:
             - name: Terraform Init
               run: terraform init -input=false
 
-            - name: Terraform Plan
-              id: plan
-              run: |
-                  set -o pipefail
-                  terraform plan -no-color -input=false -out=tfplan | tee plan_output.txt
-
-            - name: Format plan markdown
-              if: always() && steps.plan.outcome != 'skipped'
-              run: |
-                  python3 "$GITHUB_WORKSPACE/.github/scripts/format_plan.py" \
-                      "${{ matrix.solution }}" plan_output.txt > plan_comment.md
-
-            - name: Add plan to job summary
-              if: always() && steps.plan.outcome != 'skipped'
-              run: cat plan_comment.md >> "$GITHUB_STEP_SUMMARY"
-
-            - name: Comment on pull request
-              if: always() && steps.plan.outcome != 'skipped'
-              env:
-                GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                REPO: ${{ github.repository }}
-                PR_NUMBER: ${{ github.event.pull_request.number }}
-                MARKER: "<!-- terraform-plan:${{ matrix.solution }} -->"
-              run: |
-                  set -euo pipefail
-
-                  existing_id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
-                      --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" | head -n1)
-
-                  if [ -n "$existing_id" ]; then
-                      gh api "repos/$REPO/issues/comments/$existing_id" -X PATCH -F body=@plan_comment.md
-                  else
-                      gh api "repos/$REPO/issues/$PR_NUMBER/comments" -X POST -F body=@plan_comment.md
-                  fi
+            - name: Terraform Apply
+              run: terraform apply -input=false -auto-approve
