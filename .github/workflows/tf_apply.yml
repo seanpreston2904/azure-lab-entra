@@ -8,6 +8,8 @@ on:
 permissions:
     id-token: write
     contents: read
+    actions: read
+    pull-requests: read
 
 jobs:
     detect_solutions:
@@ -16,6 +18,7 @@ jobs:
 
         outputs:
             solutions: ${{ steps.detect.outputs.solutions }}
+            plan_run_id: ${{ steps.resolve_plan.outputs.plan_run_id }}
 
         steps:
             - name: Checkout
@@ -53,6 +56,35 @@ jobs:
                   echo "Detected solutions: $unique_solutions"
                   echo "solutions=$unique_solutions" >> "$GITHUB_OUTPUT"
 
+            - name: Resolve source PR's plan run
+              id: resolve_plan
+              if: steps.detect.outputs.solutions != '[]'
+              env:
+                GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                REPO: ${{ github.repository }}
+                MERGE_SHA: ${{ github.event.after }}
+              run: |
+                  set -euo pipefail
+
+                  pr_number=$(gh api "repos/$REPO/commits/$MERGE_SHA/pulls" --jq '.[0].number')
+                  if [ -z "$pr_number" ] || [ "$pr_number" = "null" ]; then
+                      echo "::error::No pull request associated with commit $MERGE_SHA - cannot locate a reviewed plan to apply."
+                      exit 1
+                  fi
+
+                  head_sha=$(gh api "repos/$REPO/pulls/$pr_number" --jq '.head.sha')
+                  echo "Source PR #$pr_number, head SHA $head_sha"
+
+                  plan_run_id=$(gh api "repos/$REPO/actions/workflows/tf_plan.yml/runs?head_sha=$head_sha&status=success" \
+                      --jq '.workflow_runs[0].id')
+                  if [ -z "$plan_run_id" ] || [ "$plan_run_id" = "null" ]; then
+                      echo "::error::No successful Terraform Plan run found for PR #$pr_number (head $head_sha). Re-run the plan before merging."
+                      exit 1
+                  fi
+
+                  echo "Using plan run $plan_run_id"
+                  echo "plan_run_id=$plan_run_id" >> "$GITHUB_OUTPUT"
+
     terraform_apply:
         name: Terraform Apply (${{ matrix.solution }})
         needs: detect_solutions
@@ -74,6 +106,16 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
+            - name: Download reviewed plan
+              env:
+                GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                REPO: ${{ github.repository }}
+              run: |
+                  gh run download "${{ needs.detect_solutions.outputs.plan_run_id }}" \
+                      --repo "$REPO" \
+                      --name "tfplan-${{ replace(matrix.solution, '/', '-') }}" \
+                      --dir .
+
             - name: Log in to Azure
               uses: azure/login@v3
               with:
@@ -90,4 +132,4 @@ jobs:
               run: terraform init -input=false
 
             - name: Terraform Apply
-              run: terraform apply -input=false -auto-approve
+              run: terraform apply -input=false tfplan

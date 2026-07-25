@@ -91,6 +91,13 @@ jobs:
                   set -o pipefail
                   terraform plan -no-color -input=false -out=tfplan | tee plan_output.txt
 
+            - name: Upload plan artifact
+              uses: actions/upload-artifact@v4
+              with:
+                name: tfplan-${{ replace(matrix.solution, '/', '-') }}
+                path: ${{ matrix.solution }}/tfplan
+                retention-days: 14
+
             - name: Format plan markdown
               if: always() && steps.plan.outcome != 'skipped'
               run: |
