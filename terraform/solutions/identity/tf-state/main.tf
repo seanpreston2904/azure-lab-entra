@@ -3,7 +3,7 @@ resource "azuread_application_registration" "sp_id_tf_state_app_reg" {
     description     = "Used to manage Terraform state for management landing zone."
 }
 
-resource "azuread_application_registration" "sp_id_tf_state_app_reg" {
+resource "azuread_application_registration" "sp_id_tf_state_app_reg_test" {
     display_name    = "sp-id-tf-state-testing"
     description     = "Test App Reg to allow changes to be pushed."
 }
