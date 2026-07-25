@@ -4,7 +4,7 @@ resource "azuread_application_registration" "sp_id_tf_state" {
 }
 
 resource "azuread_application_federated_identity_credential" "sp_id_tf_state_credential" {
-    application_id  = azuread_application_registration.sp_id_tf_state.application_id
+    application_id  = azuread_application_registration.sp_id_tf_state.id
     display_name    = "github-actions"
     description     = "Deploys from azure-lab-entra main branch"
     audiences       = ["api://AzureADTokenExchange"]
