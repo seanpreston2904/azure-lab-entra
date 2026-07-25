@@ -12,7 +12,7 @@ jobs:
         name: Terraform Plan
         runs-on: ubuntu-latest
 
-        environment: terraform-apply
+        environment: terraform-deploy
 
         steps:
             - name: Log in to Azure
