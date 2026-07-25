@@ -115,7 +115,7 @@ jobs:
                       --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" | head -n1)
 
                   if [ -n "$existing_id" ]; then
-                      gh api "repos/$REPO/issues/comments/$existing_id" -X PATCH -f body=@plan_comment.md
+                      gh api "repos/$REPO/issues/comments/$existing_id" -X PATCH -F body=@plan_comment.md
                   else
-                      gh api "repos/$REPO/issues/$PR_NUMBER/comments" -X POST -f body=@plan_comment.md
+                      gh api "repos/$REPO/issues/$PR_NUMBER/comments" -X POST -F body=@plan_comment.md
                   fi
