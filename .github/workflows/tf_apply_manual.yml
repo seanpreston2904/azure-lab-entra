@@ -1,0 +1,122 @@
+name: Terraform Apply (Manual)
+
+on:
+    workflow_dispatch:
+        inputs:
+            solution:
+                description: "Solution directory to plan and apply (e.g. terraform/solutions/identity/tf-state)"
+                required: true
+                type: string
+
+permissions:
+    id-token: write
+    contents: read
+
+jobs:
+    plan:
+        name: Plan (${{ inputs.solution }})
+        runs-on: ubuntu-latest
+
+        environment: terraform-plan
+
+        defaults:
+            run:
+                working-directory: ${{ inputs.solution }}
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Validate solution path
+              run: |
+                  case "${{ inputs.solution }}" in
+                      *..*)
+                          echo "::error::Solution path must not contain '..'."
+                          exit 1
+                          ;;
+                  esac
+
+                  if [ "${{ github.ref }}" != "refs/heads/master" ]; then
+                      echo "::error::This recovery workflow must be run from master, not ${{ github.ref }}."
+                      exit 1
+                  fi
+
+                  if [ ! -f "main.tf" ]; then
+                      echo "::error::No main.tf found in '${{ inputs.solution }}' - check the path."
+                      exit 1
+                  fi
+
+            - name: Log in to Azure
+              uses: azure/login@v3
+              with:
+                client-id: ${{ secrets.TF_CLIENT_ID }}
+                tenant-id: ${{ secrets.TF_TENANT_ID }}
+                subscription-id: ${{ secrets.TF_SUBSCRIPTION_ID }}
+
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v3
+              with:
+                terraform_version: "1.15.8"
+
+            - name: Terraform Init
+              run: terraform init -input=false
+
+            - name: Terraform Plan
+              run: |
+                  set -o pipefail
+                  terraform plan -no-color -input=false -out=tfplan | tee plan_output.txt
+
+            - name: Add plan to job summary
+              run: |
+                  {
+                      echo "### Manual Terraform Plan — \`${{ inputs.solution }}\`"
+                      echo '```'
+                      cat plan_output.txt
+                      echo '```'
+                  } >> "$GITHUB_STEP_SUMMARY"
+
+            - name: Upload plan artifact
+              uses: actions/upload-artifact@v4
+              with:
+                name: tfplan-manual-${{ github.run_id }}
+                path: ${{ inputs.solution }}/tfplan
+                retention-days: 1
+
+    apply:
+        name: Apply (${{ inputs.solution }})
+        needs: plan
+        runs-on: ubuntu-latest
+
+        environment: terraform-apply
+
+        defaults:
+            run:
+                working-directory: ${{ inputs.solution }}
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Download plan artifact
+              uses: actions/download-artifact@v4
+              with:
+                name: tfplan-manual-${{ github.run_id }}
+                path: ${{ inputs.solution }}
+
+            - name: Log in to Azure
+              uses: azure/login@v3
+              with:
+                client-id: ${{ secrets.TF_CLIENT_ID }}
+                tenant-id: ${{ secrets.TF_TENANT_ID }}
+                subscription-id: ${{ secrets.TF_SUBSCRIPTION_ID }}
+
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v3
+              with:
+                terraform_version: "1.15.8"
+
+            - name: Terraform Init
+              run: terraform init -input=false
+
+            - name: Terraform Apply
+              run: terraform apply -input=false tfplan
