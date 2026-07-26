@@ -85,9 +85,62 @@ jobs:
                   echo "Using plan run $plan_run_id"
                   echo "plan_run_id=$plan_run_id" >> "$GITHUB_OUTPUT"
 
+    verify_plan:
+        name: Verify Plan (${{ matrix.solution }})
+        needs: detect_solutions
+        if: needs.detect_solutions.outputs.solutions != '[]'
+        runs-on: ubuntu-latest
+
+        environment: terraform-plan
+
+        strategy:
+            fail-fast: false
+            matrix:
+                solution: ${{ fromJson(needs.detect_solutions.outputs.solutions) }}
+
+        defaults:
+            run:
+                working-directory: ${{ matrix.solution }}
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Compute artifact name
+              id: artifact_name
+              run: echo "name=tfplan-$(echo "${{ matrix.solution }}" | tr '/' '-')" >> "$GITHUB_OUTPUT"
+
+            - name: Download reviewed plan
+              env:
+                GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                REPO: ${{ github.repository }}
+              run: |
+                  gh run download "${{ needs.detect_solutions.outputs.plan_run_id }}" \
+                      --repo "$REPO" \
+                      --name "${{ steps.artifact_name.outputs.name }}" \
+                      --dir .
+
+            - name: Log in to Azure
+              uses: azure/login@v3
+              with:
+                client-id: ${{ secrets.TF_CLIENT_ID }}
+                tenant-id: ${{ secrets.TF_TENANT_ID }}
+                subscription-id: ${{ secrets.TF_SUBSCRIPTION_ID }}
+
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v3
+              with:
+                terraform_version: "1.15.8"
+
+            - name: Terraform Init
+              run: terraform init -input=false
+
+            - name: Show plan
+              run: terraform show -no-color tfplan
+
     terraform_apply:
         name: Terraform Apply (${{ matrix.solution }})
-        needs: detect_solutions
+        needs: [detect_solutions, verify_plan]
         if: needs.detect_solutions.outputs.solutions != '[]'
         runs-on: ubuntu-latest
 

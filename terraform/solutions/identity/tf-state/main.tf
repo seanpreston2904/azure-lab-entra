@@ -3,10 +3,15 @@ resource "azuread_application_registration" "sp_id_tf_state_app_reg" {
     description     = "Used to manage Terraform state for management landing zone."
 }
 
+resource "azuread_application_registration" "sp_id_tf_state_app_reg_test" {
+    display_name    = "sp-id-tf-state-testing"
+    description     = "Test App Reg to allow changes to be pushed."
+}
+
 resource "azuread_application_federated_identity_credential" "sp_id_tf_state_plan_credential" {
     application_id  = azuread_application_registration.sp_id_tf_state_app_reg.id
     display_name    = "github-actions-plan"
-    description     = "Deploys from azure-lab-entra main branch"
+    description     = "Plans from azure-lab-entra diff branch."
     audiences       = ["api://AzureADTokenExchange"]
     issuer          = "https://token.actions.githubusercontent.com"
     subject         = "repo:seanpreston2904@38393064/azure-lab-entra@1305699783:environment:terraform-plan"
@@ -15,7 +20,7 @@ resource "azuread_application_federated_identity_credential" "sp_id_tf_state_pla
 resource "azuread_application_federated_identity_credential" "sp_id_tf_state_apply_credential" {
     application_id  = azuread_application_registration.sp_id_tf_state_app_reg.id
     display_name    = "github-actions-apply"
-    description     = "Deploys from azure-lab-entra main branch"
+    description     = "Applies from azure-lab-entra main branch."
     audiences       = ["api://AzureADTokenExchange"]
     issuer          = "https://token.actions.githubusercontent.com"
     subject         = "repo:seanpreston2904@38393064/azure-lab-entra@1305699783:environment:terraform-apply"
