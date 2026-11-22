@@ -1,15 +1,16 @@
-resource "azuread_application_registration" "sp_id_tf_state_app_reg" {
+#
+# Management App Registration
+#
+resource "azuread_application_registration" "sp_id_tf_state_management_app_reg" {
     display_name    = "sp-id-tf-state-management"
     description     = "Used to manage Terraform state for management landing zone."
 }
 
-resource "azuread_application_registration" "sp_id_tf_state_app_reg_test" {
-    display_name    = "sp-id-tf-state-testing"
-    description     = "Test App Reg to allow changes to be pushed."
-}
-
+#
+# Management App Registration Federated Identity Credentials
+#
 resource "azuread_application_federated_identity_credential" "sp_id_tf_state_plan_credential" {
-    application_id  = azuread_application_registration.sp_id_tf_state_app_reg.id
+    application_id  = azuread_application_registration.sp_id_tf_state_management_app_reg.id
     display_name    = "github-actions-plan"
     description     = "Plans from azure-lab-entra diff branch."
     audiences       = ["api://AzureADTokenExchange"]
@@ -18,7 +19,7 @@ resource "azuread_application_federated_identity_credential" "sp_id_tf_state_pla
 }
 
 resource "azuread_application_federated_identity_credential" "sp_id_tf_state_apply_credential" {
-    application_id  = azuread_application_registration.sp_id_tf_state_app_reg.id
+    application_id  = azuread_application_registration.sp_id_tf_state_management_app_reg.id
     display_name    = "github-actions-apply"
     description     = "Applies from azure-lab-entra main branch."
     audiences       = ["api://AzureADTokenExchange"]
@@ -27,5 +28,5 @@ resource "azuread_application_federated_identity_credential" "sp_id_tf_state_app
 }
 
 resource "azuread_service_principal" "sp_id_tf_state_principal" {
-    client_id = azuread_application_registration.sp_id_tf_state_app_reg.client_id
+    client_id = azuread_application_registration.sp_id_tf_state_management_app_reg.client_id
 }
