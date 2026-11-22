@@ -6,11 +6,6 @@ resource "azuread_application_registration" "sp_id_tf_state_management_app_reg" 
     description     = "Used to manage Terraform state for management landing zone."
 }
 
-resource "azuread_application_registration" "sp_id_tf_state_test_app_reg" {
-    display_name    = "sp-id-tf-state-testing"
-    description     = "Test App Reg to allow changes to be pushed."
-}
-
 #
 # Management App Registration Federated Identity Credentials
 #
