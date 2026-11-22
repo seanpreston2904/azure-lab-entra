@@ -7,7 +7,7 @@ resource "azuread_application_registration" "sp_id_tf_state_management_app_reg" 
 }
 
 #
-# Management App Registration Federated Identity Credentials
+# Management (Identity) App Registration Federated Identity Credentials
 #
 resource "azuread_application_federated_identity_credential" "sp_id_tf_state_plan_credential" {
     application_id  = azuread_application_registration.sp_id_tf_state_management_app_reg.id

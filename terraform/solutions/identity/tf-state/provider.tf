@@ -6,16 +6,8 @@ terraform {
         }
     }
 
-    backend "azurerm" {
-        resource_group_name  = "rg-tf-state-aue"
-        storage_account_name = "stspdevtfstate"
-        container_name       = "sub-management"
-        
-        # Virtual path prefix creates the folder structure in the UI
-        key                  = "identity/tf-state.tfstate" 
-        
-        use_azuread_auth     = true
-    }
+    # Settings are supplied by the reusable workflows via -backend-config
+    backend "azurerm" {}
 }
 
 provider "azuread" {
